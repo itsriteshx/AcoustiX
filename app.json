@@ -1,23 +1,42 @@
 {
   "expo": {
-    "name": "acousti-tape",
+    "name": "AcoustiTape",
     "slug": "acousti-tape",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.acoustix.acoustitape",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "AcoustiTape requires access to your microphone to capture room impulse responses (such as a handclap) for calculating reverberation time (RT60)."
+      }
     },
     "android": {
+      "package": "com.acoustix.acoustitape",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "AcoustiTape requires access to your microphone to capture room impulse responses (such as a handclap) for calculating reverberation time (RT60)."
+        }
+      ],
+      "expo-font",
+      "expo-audio",
+      "expo-asset"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }
