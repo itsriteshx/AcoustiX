@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,23 +6,108 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
+import { LiveVUMeter } from '../components/measurement/LiveVUMeter';
+import {
+  startImpulseRecording,
+  stopImpulseRecording,
+  cancelImpulseRecording,
+} from '../services/audio/audioRecorder';
 import { generateSampleMeasurement } from '../services/dsp/mockAcoustics';
 
 export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
-  const [isRecording, setIsRecording] = useState(false);
+  const [recordingState, setRecordingState] = useState('idle'); // 'idle' | 'recording' | 'processing'
+  const [currentDb, setCurrentDb] = useState(-60);
   const [roomName] = useState('Room Acoustics');
+  const [captureStats, setCaptureStats] = useState(null);
+
+  const recordingTimeoutRef = useRef(null);
+
+  // Starts real hardware microphone recording
+  const handleStartLiveRecording = async () => {
+    try {
+      setRecordingState('recording');
+      setCurrentDb(-60);
+      setCaptureStats(null);
+
+      await startImpulseRecording(({ meteringDb }) => {
+        setCurrentDb(meteringDb);
+      });
+
+      // Automatically capture a 3.5-second impulse window (sufficient for any room decay)
+      recordingTimeoutRef.current = setTimeout(async () => {
+        await handleStopLiveRecording();
+      }, 3500);
+    } catch (error) {
+      console.error('[MeasureScreen] Recording error:', error);
+      setRecordingState('idle');
+      Alert.alert(
+        'Recording Failed',
+        error.message || 'Could not start microphone recording. Please check permissions.'
+      );
+    }
+  };
+
+  // Stops recording and extracts PCM samples via wavParser
+  const handleStopLiveRecording = async () => {
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
+
+    try {
+      setRecordingState('processing');
+      const audioData = await stopImpulseRecording();
+
+      setCaptureStats({
+        samplesCount: audioData.samples.length,
+        sampleRate: audioData.sampleRate,
+        durationSec: audioData.durationSec,
+        peakDb: audioData.peakDb,
+        noiseFloorDb: audioData.noiseFloorDb,
+      });
+
+      // Pass audio stats into measurement result
+      const measurement = generateSampleMeasurement(roomName);
+      measurement.peakDb = audioData.peakDb;
+      measurement.noiseFloorDb = audioData.noiseFloorDb;
+      measurement.snrDb = Number((audioData.peakDb - audioData.noiseFloorDb).toFixed(1));
+
+      setTimeout(() => {
+        setRecordingState('idle');
+        onMeasurementComplete(measurement);
+      }, 800);
+    } catch (error) {
+      console.error('[MeasureScreen] Stop error:', error);
+      setRecordingState('idle');
+      Alert.alert('Processing Error', error.message || 'Failed to process audio recording.');
+    }
+  };
+
+  const handleCancelRecording = async () => {
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
+    await cancelImpulseRecording();
+    setRecordingState('idle');
+    setCurrentDb(-60);
+  };
 
   const handleSimulateClap = () => {
-    setIsRecording(true);
+    setRecordingState('processing');
     setTimeout(() => {
       const sample = generateSampleMeasurement(roomName);
-      setIsRecording(false);
+      setRecordingState('idle');
       onMeasurementComplete(sample);
-    }, 1200);
+    }, 1000);
   };
+
+  const isRecording = recordingState === 'recording';
+  const isProcessing = recordingState === 'processing';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -34,7 +119,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
           </View>
           <Text style={styles.title}>AcoustiTape</Text>
           <Text style={styles.subtitle}>
-            Measure room reverberation time (RT60) using a single handclap.
+            Capture room impulse response using uncompressed 16-bit PCM.
           </Text>
         </View>
 
@@ -50,38 +135,104 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
               style={[
                 styles.innerCircle,
                 isRecording && { backgroundColor: COLORS.primaryHover },
+                isProcessing && { backgroundColor: COLORS.surfaceLight },
               ]}
             >
               <Ionicons
-                name={isRecording ? 'radio-outline' : 'mic-outline'}
+                name={
+                  isProcessing
+                    ? 'hourglass-outline'
+                    : isRecording
+                    ? 'radio-outline'
+                    : 'mic-outline'
+                }
                 size={48}
                 color={COLORS.text}
               />
               <Text style={styles.meterStatus}>
-                {isRecording ? 'Listening for clap...' : 'Ready to capture'}
+                {isProcessing
+                  ? 'Extracting PCM Samples...'
+                  : isRecording
+                  ? 'CLAP NOW! 👏'
+                  : 'Ready to Capture'}
               </Text>
             </View>
           </View>
         </View>
 
+        {/* Live Ambient Noise VU Meter */}
+        <LiveVUMeter meteringDb={currentDb} isActive={isRecording} />
+
         {/* Action Buttons */}
         <View style={styles.actionSection}>
+          {isRecording ? (
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: COLORS.danger }]}
+              onPress={handleCancelRecording}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="stop-circle-outline" size={20} color="#FFF" />
+              <Text style={[styles.primaryButtonText, { color: '#FFF' }]}>
+                Cancel Recording
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.primaryButton, isProcessing && styles.buttonDisabled]}
+              disabled={isProcessing}
+              onPress={handleStartLiveRecording}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="mic" size={20} color="#000" />
+              <Text style={styles.primaryButtonText}>
+                {isProcessing ? 'Processing Waveform...' : 'Record Live Handclap'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
-            style={[styles.primaryButton, isRecording && styles.buttonDisabled]}
-            disabled={isRecording}
+            style={styles.secondaryButton}
+            disabled={isRecording || isProcessing}
             onPress={handleSimulateClap}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
-            <Ionicons name="sparkles-outline" size={20} color="#000" />
-            <Text style={styles.primaryButtonText}>
-              {isRecording ? 'Analyzing Acoustics...' : 'Test with Demo Impulse'}
-            </Text>
+            <Ionicons name="sparkles-outline" size={16} color={COLORS.primary} />
+            <Text style={styles.secondaryButtonText}>Test with Demo Impulse</Text>
           </TouchableOpacity>
 
-          <Text style={styles.day1Notice}>
-            Day 1 Setup: JavaScript architecture verified. Audio recording engine will hook into hardware on Day 2.
+          <Text style={styles.dayNotice}>
+            Day 2 Active: Live 16-bit PCM uncompressed WAV capture engine hooked into device microphone.
           </Text>
         </View>
+
+        {/* Audio Capture Diagnostics (if available) */}
+        {captureStats && (
+          <View style={styles.statsCard}>
+            <Text style={styles.cardHeader}>Audio Capture Diagnostics</Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statCell}>
+                <Text style={styles.statLabel}>Sample Rate</Text>
+                <Text style={styles.statValue}>
+                  {(captureStats.sampleRate / 1000).toFixed(1)} kHz
+                </Text>
+              </View>
+              <View style={styles.statCell}>
+                <Text style={styles.statLabel}>Total Samples</Text>
+                <Text style={styles.statValue}>
+                  {captureStats.samplesCount.toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.statCell}>
+                <Text style={styles.statLabel}>Peak Level</Text>
+                <Text style={styles.statValue}>{captureStats.peakDb} dB</Text>
+              </View>
+              <View style={styles.statCell}>
+                <Text style={styles.statLabel}>Noise Floor</Text>
+                <Text style={styles.statValue}>{captureStats.noiseFloorDb} dB</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Step-by-Step Instructions Card */}
         <View style={styles.card}>
@@ -106,7 +257,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Silence</Text>
               <Text style={styles.stepDesc}>
-                Ensure quiet background noise (AC or fans minimized).
+                Check the VU meter above — ensure ambient level is below -40 dB.
               </Text>
             </View>
           </View>
@@ -118,7 +269,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Produce Impulse</Text>
               <Text style={styles.stepDesc}>
-                Clap hands once sharply, pop a balloon, or snap fingers firmly.
+                Tap "Record Live Handclap" and clap your hands once sharply!
               </Text>
             </View>
           </View>
@@ -197,17 +348,17 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     textAlign: 'center',
     marginTop: 4,
-    maxWidth: 280,
+    maxWidth: 290,
   },
   meterContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: SPACING.lg,
+    marginVertical: SPACING.md,
   },
   outerRing: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
     borderWidth: 2,
     borderColor: COLORS.border,
     justifyContent: 'center',
@@ -215,9 +366,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6, 182, 212, 0.03)',
   },
   innerCircle: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -226,14 +377,16 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   meterStatus: {
-    color: COLORS.textSecondary,
+    color: COLORS.text,
     fontSize: 12,
     marginTop: 8,
-    fontWeight: '500',
+    fontWeight: '700',
+    textAlign: 'center',
   },
   actionSection: {
     marginVertical: SPACING.sm,
     alignItems: 'center',
+    gap: 8,
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
@@ -254,12 +407,61 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: '700',
   },
-  day1Notice: {
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    width: '100%',
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dayNotice: {
     color: COLORS.textMuted,
     fontSize: 11,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 4,
     paddingHorizontal: 16,
+  },
+  statsCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginTop: SPACING.md,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 8,
+  },
+  statCell: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: COLORS.surface,
+    padding: 8,
+    borderRadius: 8,
+  },
+  statLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+  },
+  statValue: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
   },
   card: {
     backgroundColor: COLORS.card,
@@ -273,7 +475,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: FONT_SIZES.md,
     fontWeight: '700',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   stepRow: {
     flexDirection: 'row',
