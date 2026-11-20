@@ -16,6 +16,7 @@ import {
   stopImpulseRecording,
   cancelImpulseRecording,
 } from '../services/audio/audioRecorder';
+import { detectImpulse } from '../services/dsp/impulseDetector';
 import { generateSampleMeasurement } from '../services/dsp/mockAcoustics';
 
 export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
@@ -51,7 +52,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
     }
   };
 
-  // Stops recording and extracts PCM samples via wavParser
+  // Stops recording and feeds PCM samples to impulseDetector
   const handleStopLiveRecording = async () => {
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
@@ -62,24 +63,52 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
       setRecordingState('processing');
       const audioData = await stopImpulseRecording();
 
+      // Day 3 Core: Impulse Detection, Windowing & Noise Floor Estimation
+      const impulse = detectImpulse(audioData.samples, audioData.sampleRate);
+
       setCaptureStats({
-        samplesCount: audioData.samples.length,
         sampleRate: audioData.sampleRate,
-        durationSec: audioData.durationSec,
-        peakDb: audioData.peakDb,
-        noiseFloorDb: audioData.noiseFloorDb,
+        samplesCount: audioData.samples.length,
+        decaySamplesCount: impulse.decaySamples ? impulse.decaySamples.length : 0,
+        onsetMs: impulse.onsetMs,
+        peakDb: impulse.peakDb,
+        noiseFloorDb: impulse.noiseFloorDb,
+        snrDb: impulse.snrDb,
+        isValid: impulse.isValid,
+        message: impulse.validationMessage,
       });
 
-      // Pass audio stats into measurement result
+      // Check if impulse is valid for ISO 3382 analysis
+      if (!impulse.isValid) {
+        setRecordingState('idle');
+        Alert.alert(
+          'Impulse Quality Warning',
+          impulse.validationMessage,
+          [
+            { text: 'Try Again', onPress: () => handleStartLiveRecording() },
+            {
+              text: 'Use Demo Anyway',
+              style: 'cancel',
+              onPress: () => {
+                const sample = generateSampleMeasurement(roomName);
+                onMeasurementComplete(sample);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Valid impulse captured: pass metrics into measurement result
       const measurement = generateSampleMeasurement(roomName);
-      measurement.peakDb = audioData.peakDb;
-      measurement.noiseFloorDb = audioData.noiseFloorDb;
-      measurement.snrDb = Number((audioData.peakDb - audioData.noiseFloorDb).toFixed(1));
+      measurement.peakDb = impulse.peakDb;
+      measurement.noiseFloorDb = impulse.noiseFloorDb;
+      measurement.snrDb = impulse.snrDb;
 
       setTimeout(() => {
         setRecordingState('idle');
         onMeasurementComplete(measurement);
-      }, 800);
+      }, 700);
     } catch (error) {
       console.error('[MeasureScreen] Stop error:', error);
       setRecordingState('idle');
@@ -119,7 +148,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
           </View>
           <Text style={styles.title}>AcoustiTape</Text>
           <Text style={styles.subtitle}>
-            Capture room impulse response using uncompressed 16-bit PCM.
+            Acoustic impulse onset detection and SNR validation.
           </Text>
         </View>
 
@@ -151,7 +180,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
               />
               <Text style={styles.meterStatus}>
                 {isProcessing
-                  ? 'Extracting PCM Samples...'
+                  ? 'Analyzing Onset (t0)...'
                   : isRecording
                   ? 'CLAP NOW! 👏'
                   : 'Ready to Capture'}
@@ -201,25 +230,46 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
           </TouchableOpacity>
 
           <Text style={styles.dayNotice}>
-            Day 2 Active: Live 16-bit PCM uncompressed WAV capture engine hooked into device microphone.
+            Day 3 Active: Onset detection (t0), pre-trigger windowing, and ISO 3382 SNR quality validation.
           </Text>
         </View>
 
         {/* Audio Capture Diagnostics (if available) */}
         {captureStats && (
           <View style={styles.statsCard}>
-            <Text style={styles.cardHeader}>Audio Capture Diagnostics</Text>
-            <View style={styles.statsGrid}>
-              <View style={styles.statCell}>
-                <Text style={styles.statLabel}>Sample Rate</Text>
-                <Text style={styles.statValue}>
-                  {(captureStats.sampleRate / 1000).toFixed(1)} kHz
+            <View style={styles.statsHeaderRow}>
+              <Text style={styles.cardHeader}>Impulse Conditioning Stats</Text>
+              <View
+                style={[
+                  styles.qualityBadge,
+                  { backgroundColor: captureStats.isValid ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.qualityBadgeText,
+                    { color: captureStats.isValid ? COLORS.accent : COLORS.danger },
+                  ]}
+                >
+                  {captureStats.isValid ? 'VALID IMPULSE' : 'REJECTED'}
                 </Text>
               </View>
+            </View>
+
+            <View style={styles.statsGrid}>
               <View style={styles.statCell}>
-                <Text style={styles.statLabel}>Total Samples</Text>
-                <Text style={styles.statValue}>
-                  {captureStats.samplesCount.toLocaleString()}
+                <Text style={styles.statLabel}>Clap Onset (t0)</Text>
+                <Text style={styles.statValue}>{captureStats.onsetMs} ms</Text>
+              </View>
+              <View style={styles.statCell}>
+                <Text style={styles.statLabel}>Dynamic Range (SNR)</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    { color: captureStats.snrDb >= 30 ? COLORS.accent : COLORS.warning },
+                  ]}
+                >
+                  {captureStats.snrDb} dB
                 </Text>
               </View>
               <View style={styles.statCell}>
@@ -231,6 +281,10 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
                 <Text style={styles.statValue}>{captureStats.noiseFloorDb} dB</Text>
               </View>
             </View>
+
+            {captureStats.message && (
+              <Text style={styles.statMessage}>{captureStats.message}</Text>
+            )}
           </View>
         )}
 
@@ -269,7 +323,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Produce Impulse</Text>
               <Text style={styles.stepDesc}>
-                Tap "Record Live Handclap" and clap your hands once sharply!
+                Tap "Record Live Handclap" and produce a single, sharp handclap!
               </Text>
             </View>
           </View>
@@ -440,6 +494,22 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     marginTop: SPACING.md,
   },
+  statsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  qualityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  qualityBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -463,6 +533,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
+  statMessage: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 14,
@@ -475,7 +551,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: FONT_SIZES.md,
     fontWeight: '700',
-    marginBottom: SPACING.sm,
   },
   stepRow: {
     flexDirection: 'row',
