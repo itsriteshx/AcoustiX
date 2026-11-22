@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { LiveVUMeter } from '../components/measurement/LiveVUMeter';
+import { LevelBubble } from '../components/measurement/LevelBubble';
 import {
   startImpulseRecording,
   stopImpulseRecording,
   cancelImpulseRecording,
 } from '../services/audio/audioRecorder';
-import { detectImpulse } from '../services/dsp/impulseDetector';
+import {
+  startStabilityGuard,
+  stopStabilityGuard,
+} from '../services/sensors/stabilityGuard';
+import { analyzeAcoustics } from '../services/dsp/acousticAnalyzer';
 import { generateSampleMeasurement } from '../services/dsp/mockAcoustics';
 
 export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
@@ -25,11 +30,37 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
   const [roomName] = useState('Room Acoustics');
   const [captureStats, setCaptureStats] = useState(null);
 
+  // Day 6 Accelerometer Stability State
+  const [sensorData, setSensorData] = useState({
+    pitch: 0,
+    roll: 0,
+    gForce: 1.0,
+    isSteady: true,
+    isLevel: true,
+    isBumped: false,
+  });
+
   const recordingTimeoutRef = useRef(null);
+  const wasBumpedDuringRecordRef = useRef(false);
+
+  // Initialize Accelerometer Stability Guard on mount
+  useEffect(() => {
+    startStabilityGuard((data) => {
+      setSensorData(data);
+      if (data.isBumped) {
+        wasBumpedDuringRecordRef.current = true;
+      }
+    });
+
+    return () => {
+      stopStabilityGuard();
+    };
+  }, []);
 
   // Starts real hardware microphone recording
   const handleStartLiveRecording = async () => {
     try {
+      wasBumpedDuringRecordRef.current = false;
       setRecordingState('recording');
       setCurrentDb(-60);
       setCaptureStats(null);
@@ -38,7 +69,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
         setCurrentDb(meteringDb);
       });
 
-      // Automatically capture a 3.5-second impulse window (sufficient for any room decay)
+      // Capture a 3.5-second impulse window
       recordingTimeoutRef.current = setTimeout(async () => {
         await handleStopLiveRecording();
       }, 3500);
@@ -52,7 +83,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
     }
   };
 
-  // Stops recording and feeds PCM samples to impulseDetector
+  // Stops recording and executes the full DSP pipeline (Days 3, 4, 5)
   const handleStopLiveRecording = async () => {
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
@@ -63,56 +94,66 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
       setRecordingState('processing');
       const audioData = await stopImpulseRecording();
 
-      // Day 3 Core: Impulse Detection, Windowing & Noise Floor Estimation
-      const impulse = detectImpulse(audioData.samples, audioData.sampleRate);
-
-      setCaptureStats({
-        sampleRate: audioData.sampleRate,
-        samplesCount: audioData.samples.length,
-        decaySamplesCount: impulse.decaySamples ? impulse.decaySamples.length : 0,
-        onsetMs: impulse.onsetMs,
-        peakDb: impulse.peakDb,
-        noiseFloorDb: impulse.noiseFloorDb,
-        snrDb: impulse.snrDb,
-        isValid: impulse.isValid,
-        message: impulse.validationMessage,
-      });
-
-      // Check if impulse is valid for ISO 3382 analysis
-      if (!impulse.isValid) {
+      // Check if phone was bumped/dropped during recording
+      if (wasBumpedDuringRecordRef.current) {
         setRecordingState('idle');
         Alert.alert(
-          'Impulse Quality Warning',
-          impulse.validationMessage,
+          'Motion Artifact Detected',
+          'Phone acceleration spiked (> 1.75g) during capture. Please hold the phone steady and retry.',
           [
-            { text: 'Try Again', onPress: () => handleStartLiveRecording() },
-            {
-              text: 'Use Demo Anyway',
-              style: 'cancel',
-              onPress: () => {
-                const sample = generateSampleMeasurement(roomName);
-                onMeasurementComplete(sample);
-              },
-            },
+            { text: 'Retry', onPress: () => handleStartLiveRecording() },
+            { text: 'Cancel', style: 'cancel' },
           ]
         );
         return;
       }
 
-      // Valid impulse captured: pass metrics into measurement result
-      const measurement = generateSampleMeasurement(roomName);
-      measurement.peakDb = impulse.peakDb;
-      measurement.noiseFloorDb = impulse.noiseFloorDb;
-      measurement.snrDb = impulse.snrDb;
+      // Execute full ISO 3382 DSP Analysis (Days 3, 4, 5)
+      const measurement = analyzeAcoustics(
+        audioData.samples,
+        audioData.sampleRate,
+        roomName
+      );
+
+      setCaptureStats({
+        sampleRate: audioData.sampleRate,
+        samplesCount: audioData.samples.length,
+        decayCurvePoints: measurement.decayCurve.length,
+        overallRT60: measurement.overallRT60,
+        t20: measurement.t20,
+        t30: measurement.t30,
+        edt: measurement.edt,
+        rSquared: measurement.rSquared,
+        peakDb: measurement.peakDb,
+        noiseFloorDb: measurement.noiseFloorDb,
+        snrDb: measurement.snrDb,
+        bassRatio: measurement.bassRatio,
+        warmth: measurement.interpretation.warmth,
+        isValid: true,
+      });
 
       setTimeout(() => {
         setRecordingState('idle');
         onMeasurementComplete(measurement);
-      }, 700);
+      }, 600);
     } catch (error) {
-      console.error('[MeasureScreen] Stop error:', error);
+      console.error('[MeasureScreen] Analysis error:', error);
       setRecordingState('idle');
-      Alert.alert('Processing Error', error.message || 'Failed to process audio recording.');
+      Alert.alert(
+        'Impulse Analysis Warning',
+        error.message || 'Failed to analyze impulse response. Please clap firmly in a quiet room.',
+        [
+          { text: 'Try Again', onPress: () => handleStartLiveRecording() },
+          {
+            text: 'Use Demo',
+            style: 'cancel',
+            onPress: () => {
+              const sample = generateSampleMeasurement(roomName);
+              onMeasurementComplete(sample);
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -132,7 +173,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
       const sample = generateSampleMeasurement(roomName);
       setRecordingState('idle');
       onMeasurementComplete(sample);
-    }, 1000);
+    }, 800);
   };
 
   const isRecording = recordingState === 'recording';
@@ -144,11 +185,11 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
         {/* App Title Header */}
         <View style={styles.header}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>ISO 3382 IMPULSE ENGINE</Text>
+            <Text style={styles.badgeText}>ISO 3382 SCHROEDER ENGINE</Text>
           </View>
           <Text style={styles.title}>AcoustiTape</Text>
           <Text style={styles.subtitle}>
-            Acoustic impulse onset detection and SNR validation.
+            Impulse analysis, octave bandpass filters & sensor stability guard.
           </Text>
         </View>
 
@@ -180,7 +221,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
               />
               <Text style={styles.meterStatus}>
                 {isProcessing
-                  ? 'Analyzing Onset (t0)...'
+                  ? 'Calculating Schroeder RT60...'
                   : isRecording
                   ? 'CLAP NOW! 👏'
                   : 'Ready to Capture'}
@@ -188,6 +229,15 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
             </View>
           </View>
         </View>
+
+        {/* Day 6: Accelerometer Spirit Level & Motion Guard */}
+        <LevelBubble
+          pitch={sensorData.pitch}
+          roll={sensorData.roll}
+          isSteady={sensorData.isSteady}
+          isLevel={sensorData.isLevel}
+          isBumped={sensorData.isBumped}
+        />
 
         {/* Live Ambient Noise VU Meter */}
         <LiveVUMeter meteringDb={currentDb} isActive={isRecording} />
@@ -214,7 +264,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
             >
               <Ionicons name="mic" size={20} color="#000" />
               <Text style={styles.primaryButtonText}>
-                {isProcessing ? 'Processing Waveform...' : 'Record Live Handclap'}
+                {isProcessing ? 'Processing Schroeder Math...' : 'Record Live Handclap'}
               </Text>
             </TouchableOpacity>
           )}
@@ -230,76 +280,53 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
           </TouchableOpacity>
 
           <Text style={styles.dayNotice}>
-            Day 3 Active: Onset detection (t0), pre-trigger windowing, and ISO 3382 SNR quality validation.
+            Days 4, 5, 6 Active: Schroeder Integration, 6-Band Octave Filters, and Accelerometer Stability Guard.
           </Text>
         </View>
 
-        {/* Audio Capture Diagnostics (if available) */}
+        {/* Real DSP Measurement Summary Card */}
         {captureStats && (
           <View style={styles.statsCard}>
             <View style={styles.statsHeaderRow}>
-              <Text style={styles.cardHeader}>Impulse Conditioning Stats</Text>
-              <View
-                style={[
-                  styles.qualityBadge,
-                  { backgroundColor: captureStats.isValid ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.qualityBadgeText,
-                    { color: captureStats.isValid ? COLORS.accent : COLORS.danger },
-                  ]}
-                >
-                  {captureStats.isValid ? 'VALID IMPULSE' : 'REJECTED'}
-                </Text>
+              <Text style={styles.cardHeader}>Live DSP Analysis (ISO 3382)</Text>
+              <View style={styles.qualityBadge}>
+                <Text style={styles.qualityBadgeText}>R² = {(captureStats.rSquared * 100).toFixed(1)}%</Text>
               </View>
             </View>
 
             <View style={styles.statsGrid}>
               <View style={styles.statCell}>
-                <Text style={styles.statLabel}>Clap Onset (t0)</Text>
-                <Text style={styles.statValue}>{captureStats.onsetMs} ms</Text>
+                <Text style={styles.statLabel}>Broadband RT60</Text>
+                <Text style={styles.statValue}>{captureStats.overallRT60}s</Text>
               </View>
               <View style={styles.statCell}>
-                <Text style={styles.statLabel}>Dynamic Range (SNR)</Text>
-                <Text
-                  style={[
-                    styles.statValue,
-                    { color: captureStats.snrDb >= 30 ? COLORS.accent : COLORS.warning },
-                  ]}
-                >
-                  {captureStats.snrDb} dB
-                </Text>
+                <Text style={styles.statLabel}>T20 (-5 to -25dB)</Text>
+                <Text style={styles.statValue}>{captureStats.t20}s</Text>
               </View>
               <View style={styles.statCell}>
-                <Text style={styles.statLabel}>Peak Level</Text>
-                <Text style={styles.statValue}>{captureStats.peakDb} dB</Text>
+                <Text style={styles.statLabel}>Early Decay (EDT)</Text>
+                <Text style={styles.statValue}>{captureStats.edt}s</Text>
               </View>
               <View style={styles.statCell}>
-                <Text style={styles.statLabel}>Noise Floor</Text>
-                <Text style={styles.statValue}>{captureStats.noiseFloorDb} dB</Text>
+                <Text style={styles.statLabel}>Bass Ratio</Text>
+                <Text style={styles.statValue}>{captureStats.bassRatio} ({captureStats.warmth})</Text>
               </View>
             </View>
-
-            {captureStats.message && (
-              <Text style={styles.statMessage}>{captureStats.message}</Text>
-            )}
           </View>
         )}
 
         {/* Step-by-Step Instructions Card */}
         <View style={styles.card}>
-          <Text style={styles.cardHeader}>How to take a measurement</Text>
+          <Text style={styles.cardHeader}>Measurement Guidelines</Text>
 
           <View style={styles.stepRow}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>1</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Position</Text>
+              <Text style={styles.stepTitle}>Position & Stability</Text>
               <Text style={styles.stepDesc}>
-                Hold phone at chest height in the center of the room.
+                Hold phone steady at chest height. Check the spirit bubble above (green is steady).
               </Text>
             </View>
           </View>
@@ -309,9 +336,9 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
               <Text style={styles.stepNumberText}>2</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Silence</Text>
+              <Text style={styles.stepTitle}>Background Noise</Text>
               <Text style={styles.stepDesc}>
-                Check the VU meter above — ensure ambient level is below -40 dB.
+                VU meter should read below -40 dB before clapping.
               </Text>
             </View>
           </View>
@@ -321,9 +348,9 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
               <Text style={styles.stepNumberText}>3</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Produce Impulse</Text>
+              <Text style={styles.stepTitle}>Single Sharp Clap</Text>
               <Text style={styles.stepDesc}>
-                Tap "Record Live Handclap" and produce a single, sharp handclap!
+                Tap record and produce one crisp handclap. The Schroeder curve is computed instantly.
               </Text>
             </View>
           </View>
@@ -407,12 +434,12 @@ const styles = StyleSheet.create({
   meterContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: SPACING.md,
+    marginVertical: SPACING.sm,
   },
   outerRing: {
-    width: 190,
-    height: 190,
-    borderRadius: 95,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
     borderWidth: 2,
     borderColor: COLORS.border,
     justifyContent: 'center',
@@ -420,20 +447,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6, 182, 212, 0.03)',
   },
   innerCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
   },
   meterStatus: {
     color: COLORS.text,
-    fontSize: 12,
-    marginTop: 8,
+    fontSize: 11,
+    marginTop: 6,
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -501,11 +528,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   qualityBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   qualityBadgeText: {
+    color: COLORS.accent,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -532,12 +561,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginTop: 2,
-  },
-  statMessage: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    marginTop: 8,
-    fontStyle: 'italic',
   },
   card: {
     backgroundColor: COLORS.card,
