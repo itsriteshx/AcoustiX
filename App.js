@@ -6,6 +6,7 @@ import { COLORS } from './src/constants/theme';
 import { MeasureScreen } from './src/screens/MeasureScreen';
 import { ResultsScreen } from './src/screens/ResultsScreen';
 import { AdvisorScreen } from './src/screens/AdvisorScreen';
+import { HistoryScreen } from './src/screens/HistoryScreen';
 import { saveMeasurement, getAllMeasurements } from './src/services/storage/historyStorage';
 
 export default function App() {
@@ -43,6 +44,14 @@ export default function App() {
           <ResultsScreen
             measurement={currentMeasurement}
             onNewMeasurement={() => setActiveTab('measure')}
+          />
+        )}
+        {activeTab === 'history' && (
+          <HistoryScreen
+            onSelectMeasurement={(item) => {
+              setCurrentMeasurement(item);
+              setActiveTab('results');
+            }}
           />
         )}
         {activeTab === 'advisor' && <AdvisorScreen />}
@@ -87,6 +96,26 @@ export default function App() {
             ]}
           >
             Results
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabButton}
+          onPress={() => setActiveTab('history')}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={activeTab === 'history' ? 'time' : 'time-outline'}
+            size={22}
+            color={activeTab === 'history' ? COLORS.primary : COLORS.textMuted}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === 'history' && styles.tabLabelActive,
+            ]}
+          >
+            History
           </Text>
         </TouchableOpacity>
 
