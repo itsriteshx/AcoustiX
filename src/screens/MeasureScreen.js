@@ -21,14 +21,16 @@ import {
   startStabilityGuard,
   stopStabilityGuard,
 } from '../services/sensors/stabilityGuard';
+import { getCurrentLocation } from '../services/location/locationService';
 import { analyzeAcoustics } from '../services/dsp/acousticAnalyzer';
 import { generateSampleMeasurement } from '../services/dsp/mockAcoustics';
 
 export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
   const [recordingState, setRecordingState] = useState('idle'); // 'idle' | 'recording' | 'processing'
   const [currentDb, setCurrentDb] = useState(-60);
-  const [roomName] = useState('Room Acoustics');
+  const [roomName, setRoomName] = useState('Room Acoustics');
   const [captureStats, setCaptureStats] = useState(null);
+  const [locationData, setLocationData] = useState(null);
 
   // Day 6 Accelerometer Stability State
   const [sensorData, setSensorData] = useState({
@@ -43,12 +45,20 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
   const recordingTimeoutRef = useRef(null);
   const wasBumpedDuringRecordRef = useRef(false);
 
-  // Initialize Accelerometer Stability Guard on mount
+  // Initialize Accelerometer Stability Guard and GPS Location on mount
   useEffect(() => {
     startStabilityGuard((data) => {
       setSensorData(data);
       if (data.isBumped) {
         wasBumpedDuringRecordRef.current = true;
+      }
+    });
+
+    // Acquire GPS location tag
+    getCurrentLocation().then((loc) => {
+      setLocationData(loc);
+      if (loc && loc.venueName && loc.venueName !== 'Manual Entry (No GPS)') {
+        setRoomName(loc.venueName);
       }
     });
 
@@ -108,11 +118,12 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
         return;
       }
 
-      // Execute full ISO 3382 DSP Analysis (Days 3, 4, 5)
+      // Execute full ISO 3382 DSP Analysis (Days 3, 4, 5, 7)
       const measurement = analyzeAcoustics(
         audioData.samples,
         audioData.sampleRate,
-        roomName
+        roomName,
+        locationData
       );
 
       setCaptureStats({
@@ -228,6 +239,18 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
               </Text>
             </View>
           </View>
+        </View>
+
+        {/* GPS Location Tagging */}
+        <View style={styles.locationPill}>
+          <Ionicons
+            name={locationData?.isGeoTagged ? 'location' : 'location-outline'}
+            size={14}
+            color={locationData?.isGeoTagged ? COLORS.primary : COLORS.textMuted}
+          />
+          <Text style={styles.locationText} numberOfLines={1}>
+            {locationData?.venueName || 'Acquiring GPS venue...'}
+          </Text>
         </View>
 
         {/* Day 6: Accelerometer Spirit Level & Motion Guard */}
@@ -435,6 +458,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: SPACING.sm,
+  },
+  locationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.card,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignSelf: 'center',
+    marginBottom: SPACING.xs,
+    maxWidth: '90%',
+  },
+  locationText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   outerRing: {
     width: 170,

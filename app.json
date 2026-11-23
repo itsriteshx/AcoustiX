@@ -10,13 +10,19 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.acoustix.acoustitape",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "AcoustiTape requires access to your microphone to capture room impulse responses (such as a handclap) for calculating reverberation time (RT60)."
+        "NSMicrophoneUsageDescription": "AcoustiTape requires access to your microphone to capture room impulse responses (such as a handclap) for calculating reverberation time (RT60).",
+        "NSLocationWhenInUseUsageDescription": "AcoustiTape uses your location to geo-tag room acoustic measurements for architectural campus audits.",
+        "NSCameraUsageDescription": "AcoustiTape uses the camera to capture room photos to document wall surfaces and acoustic treatments.",
+        "NSPhotoLibraryUsageDescription": "AcoustiTape accesses photos to attach room images to acoustic measurement reports."
       }
     },
     "android": {
       "package": "com.acoustix.acoustitape",
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
@@ -35,7 +41,20 @@
       ],
       "expo-font",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "AcoustiTape uses your location to geo-tag room acoustic measurements for architectural campus audits."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AcoustiTape accesses photos to attach room images to acoustic measurement reports.",
+          "cameraPermission": "AcoustiTape uses the camera to capture room photos to document wall surfaces and acoustic treatments."
+        }
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"

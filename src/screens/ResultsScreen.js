@@ -38,7 +38,17 @@ export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
       <ScrollView contentContainerStyle={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.roomTitle}>{measurement.roomName}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roomTitle}>{measurement.roomName}</Text>
+            {measurement.location?.venueName ? (
+              <View style={styles.venueRow}>
+                <Ionicons name="location-sharp" size={12} color={COLORS.primary} />
+                <Text style={styles.venueText} numberOfLines={1}>
+                  {measurement.location.venueName}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.timestamp}>
             {new Date(measurement.createdAt).toLocaleTimeString([], {
               hour: '2-digit',
@@ -194,6 +204,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.md,
+  },
+  venueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  venueText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '500',
   },
   roomTitle: {
     color: COLORS.text,

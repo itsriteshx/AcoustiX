@@ -11,13 +11,20 @@ import { ROOM_TARGET_SPECS } from '../../constants/targets.js';
  * 2. Schroeder backward energy integration & linear regression (Day 4)
  * 3. 6-band octave Butterworth bandpass filtering (Day 5)
  * 4. Acoustic ratio indices and room compliance classification
+ * 5. Attaches GPS location and room metadata
  *
  * @param {Float32Array} rawSamples - Mono audio samples [-1.0, 1.0].
  * @param {number} sampleRate - Sample rate in Hz (e.g. 44100).
  * @param {string} [roomName='Measured Space'] - Name of room.
+ * @param {Object} [locationData=null] - GPS metadata from locationService.
  * @returns {Object} Complete AcousticMeasurement object.
  */
-export function analyzeAcoustics(rawSamples, sampleRate = 44100, roomName = 'Measured Space') {
+export function analyzeAcoustics(
+  rawSamples,
+  sampleRate = 44100,
+  roomName = 'Measured Space',
+  locationData = null
+) {
   // Step 1: Detect impulse onset, noise floor and SNR
   const impulse = detectImpulse(rawSamples, sampleRate);
   if (!impulse.isValid) {
@@ -76,6 +83,13 @@ export function analyzeAcoustics(rawSamples, sampleRate = 44100, roomName = 'Mea
     trebleRatio: spectral.trebleRatio,
     octaveBands: spectral.octaveBands,
     decayCurve: decay.decayCurve,
+    location: locationData || {
+      isGeoTagged: false,
+      venueName: 'Unassigned Venue',
+      formattedAddress: '',
+    },
+    photoUri: null,
+    surfaceMaterials: [],
     interpretation: {
       summary,
       warmth: spectral.warmth,

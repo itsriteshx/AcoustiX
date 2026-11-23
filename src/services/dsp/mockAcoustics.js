@@ -8,9 +8,7 @@ export function generateSampleMeasurement(roomName = 'Classroom 302') {
   const stepMs = 20;
 
   for (let t = 0; t <= totalDurationMs; t += stepMs) {
-    // In dB: decay = -(60 / rt60) * (t / 1000)
     const idealDb = -(60 / rt60) * (t / 1000);
-    // Subtle flutter noise for realistic room mode response
     const noise = (Math.random() - 0.5) * 0.8;
     const energyDb = Math.max(-55, Number((idealDb + noise).toFixed(2)));
     decayPoints.push({ timeMs: t, energyDb });
@@ -22,14 +20,25 @@ export function generateSampleMeasurement(roomName = 'Classroom 302') {
     createdAt: new Date().toISOString(),
     overallRT60: 0.58,
     edt: 0.52,
-    t20: 0.19, // 0.19 * 3 = 0.57s
-    t30: 0.29, // 0.29 * 2 = 0.58s
+    t20: 0.19,
+    t30: 0.29,
     rSquared: 0.985,
     peakDb: 88.4,
     noiseFloorDb: -48.2,
     snrDb: 40.2,
     bassRatio: 1.15,
     trebleRatio: 0.88,
+    location: {
+      isGeoTagged: true,
+      latitude: 28.6139,
+      longitude: 77.2090,
+      altitude: 216,
+      venueName: 'Academic Block 4, Campus',
+      city: 'University Campus',
+      formattedAddress: 'Room 302, Academic Block 4',
+    },
+    photoUri: null,
+    surfaceMaterials: ['Carpet Flooring', 'Acoustic Ceiling Tiles', 'Plasterboard Walls'],
     octaveBands: [
       { band: 125, rt60: 0.72, t20: 0.24, rSquared: 0.96 },
       { band: 250, rt60: 0.65, t20: 0.21, rSquared: 0.98 },
