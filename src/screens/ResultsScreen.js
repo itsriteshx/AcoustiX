@@ -6,6 +6,7 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
@@ -56,6 +57,22 @@ export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
             })}
           </Text>
         </View>
+
+        {/* Room Visual Audit Photo & Materials */}
+        {measurement.photoUri && (
+          <View style={styles.photoCard}>
+            <Image source={{ uri: measurement.photoUri }} style={styles.roomImage} />
+            {measurement.surfaceMaterials && measurement.surfaceMaterials.length > 0 && (
+              <View style={styles.materialsRow}>
+                {measurement.surfaceMaterials.map((mat, i) => (
+                  <View key={i} style={styles.materialTag}>
+                    <Text style={styles.materialTagText}>{mat}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Hero RT60 Badge */}
         <View style={styles.heroCard}>
@@ -224,6 +241,38 @@ const styles = StyleSheet.create({
   timestamp: {
     color: COLORS.textMuted,
     fontSize: 12,
+  },
+  photoCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  roomImage: {
+    width: '100%',
+    height: 160,
+  },
+  materialsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    padding: 10,
+    backgroundColor: COLORS.surface,
+  },
+  materialTag: {
+    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  materialTagText: {
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: '600',
   },
   heroCard: {
     backgroundColor: COLORS.card,

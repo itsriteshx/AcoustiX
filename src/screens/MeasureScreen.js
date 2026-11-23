@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { LiveVUMeter } from '../components/measurement/LiveVUMeter';
 import { LevelBubble } from '../components/measurement/LevelBubble';
+import { RoomPhotoPicker } from '../components/measurement/RoomPhotoPicker';
 import {
   startImpulseRecording,
   stopImpulseRecording,
@@ -31,6 +32,8 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
   const [roomName, setRoomName] = useState('Room Acoustics');
   const [captureStats, setCaptureStats] = useState(null);
   const [locationData, setLocationData] = useState(null);
+  const [photoUri, setPhotoUri] = useState(null);
+  const [surfaceMaterials, setSurfaceMaterials] = useState([]);
 
   // Day 6 Accelerometer Stability State
   const [sensorData, setSensorData] = useState({
@@ -118,13 +121,15 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
         return;
       }
 
-      // Execute full ISO 3382 DSP Analysis (Days 3, 4, 5, 7)
+      // Execute full ISO 3382 DSP Analysis (Days 3, 4, 5, 7, 8)
       const measurement = analyzeAcoustics(
         audioData.samples,
         audioData.sampleRate,
         roomName,
         locationData
       );
+      measurement.photoUri = photoUri;
+      measurement.surfaceMaterials = surfaceMaterials;
 
       setCaptureStats({
         sampleRate: audioData.sampleRate,
@@ -260,6 +265,14 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
           isSteady={sensorData.isSteady}
           isLevel={sensorData.isLevel}
           isBumped={sensorData.isBumped}
+        />
+
+        {/* Day 8: Room Visual Documentation & Surface Materials */}
+        <RoomPhotoPicker
+          photoUri={photoUri}
+          onPhotoSelected={setPhotoUri}
+          selectedMaterials={surfaceMaterials}
+          onMaterialsChanged={setSurfaceMaterials}
         />
 
         {/* Live Ambient Noise VU Meter */}
