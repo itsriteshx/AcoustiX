@@ -7,11 +7,17 @@ import { MeasureScreen } from './src/screens/MeasureScreen';
 import { ResultsScreen } from './src/screens/ResultsScreen';
 import { AdvisorScreen } from './src/screens/AdvisorScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
+import { ComparisonModal } from './src/components/measurement/ComparisonModal';
 import { saveMeasurement, getAllMeasurements } from './src/services/storage/historyStorage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('measure');
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
+  const [comparisonModal, setComparisonModal] = useState({
+    visible: false,
+    roomA: null,
+    roomB: null,
+  });
 
   // Restore last measurement from storage on app launch
   React.useEffect(() => {
@@ -52,10 +58,21 @@ export default function App() {
               setCurrentMeasurement(item);
               setActiveTab('results');
             }}
+            onCompareRooms={(roomA, roomB) => {
+              setComparisonModal({ visible: true, roomA, roomB });
+            }}
           />
         )}
         {activeTab === 'advisor' && <AdvisorScreen />}
       </View>
+
+      {/* Room Comparison Modal */}
+      <ComparisonModal
+        visible={comparisonModal.visible}
+        roomA={comparisonModal.roomA}
+        roomB={comparisonModal.roomB}
+        onClose={() => setComparisonModal({ visible: false, roomA: null, roomB: null })}
+      />
 
       {/* Bottom Navigation Bar */}
       <View style={styles.tabBar}>
