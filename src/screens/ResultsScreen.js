@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { DecayCurveChart } from '../components/charts/DecayCurveChart';
 import { OctaveBarsChart } from '../components/charts/OctaveBarsChart';
+import { shareAuditReport } from '../services/export/exportService';
 
 export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
   if (!measurement) {
@@ -183,6 +184,16 @@ export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
             </View>
           ))}
         </View>
+
+        {/* Share & Export Report Button */}
+        <TouchableOpacity
+          style={styles.shareButton}
+          onPress={() => shareAuditReport(measurement)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="share-social-outline" size={18} color="#000" />
+          <Text style={styles.shareButtonText}>Export & Share Acoustic Report</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -420,6 +431,22 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 11,
     marginTop: 2,
+  },
+  shareButton: {
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  shareButtonText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '700',
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
