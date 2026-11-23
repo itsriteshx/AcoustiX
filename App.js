@@ -6,13 +6,24 @@ import { COLORS } from './src/constants/theme';
 import { MeasureScreen } from './src/screens/MeasureScreen';
 import { ResultsScreen } from './src/screens/ResultsScreen';
 import { AdvisorScreen } from './src/screens/AdvisorScreen';
+import { saveMeasurement, getAllMeasurements } from './src/services/storage/historyStorage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('measure');
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
 
+  // Restore last measurement from storage on app launch
+  React.useEffect(() => {
+    getAllMeasurements().then((list) => {
+      if (list && list.length > 0) {
+        setCurrentMeasurement(list[0]);
+      }
+    });
+  }, []);
+
   const handleMeasurementComplete = (measurement) => {
     setCurrentMeasurement(measurement);
+    saveMeasurement(measurement);
     setActiveTab('results');
   };
 
