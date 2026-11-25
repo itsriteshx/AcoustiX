@@ -28,6 +28,15 @@ export function generateSampleMeasurement(roomName = 'Classroom 302') {
     snrDb: 40.2,
     bassRatio: 1.15,
     trebleRatio: 0.88,
+    clarity: {
+      c50: 3.2,
+      c80: 4.8,
+      d50: 68.5,
+      sti: 0.78,
+      stiRating: 'Excellent',
+      speechSuitability: 'Crystal-clear consonant articulation (ANSI S12.60 compliant)',
+      musicSuitability: 'Optimal symphonic blend & transparency (ISO 3382 target)',
+    },
     location: {
       isGeoTagged: true,
       latitude: 28.6139,

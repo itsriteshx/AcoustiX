@@ -83,6 +83,28 @@ with $Q = \sqrt{2} \approx 1.414$ for a 1-octave bandwidth.
 - **Treble Ratio (Brilliance)**:
   $$TR = \frac{RT_{2000} + RT_{4000}}{RT_{500} + RT_{1000}}$$
 
+### 3.3 ISO 3382 Speech Clarity ($C_{50}$), Music Clarity ($C_{80}$), Definition ($D_{50}$) & STI
+Beyond reverberation duration, modern architectural acoustics measures sound intelligibility and musical separation through early-to-late energy ratios:
+
+1. **Speech Clarity ($C_{50}$)**:
+   Ratio of early sound energy (first 50 ms) to late reverberation energy:
+   $$C_{50} = 10 \cdot \log_{10} \left( \frac{\int_0^{50\text{ms}} p^2(t) \, dt}{\int_{50\text{ms}}^{\infty} p^2(t) \, dt} \right) \text{ dB}$$
+   - $C_{50} \ge +2\text{ dB}$: High speech articulation (ANSI S12.60 classroom compliance).
+   - $C_{50} < 0\text{ dB}$: Speech consonants are masked by room reflections.
+
+2. **Music Clarity ($C_{80}$)**:
+   Ratio of sound energy arriving within the first 80 ms versus late diffuse decay:
+   $$C_{80} = 10 \cdot \log_{10} \left( \frac{\int_0^{80\text{ms}} p^2(t) \, dt}{\int_{80\text{ms}}^{\infty} p^2(t) \, dt} \right) \text{ dB}$$
+   - Target range: $-2\text{ dB} \le C_{80} \le +4\text{ dB}$ for balanced orchestral and symphonic performance.
+
+3. **Sound Definition / Deutlichkeit ($D_{50}$)**:
+   $$D_{50} = \frac{\int_0^{50\text{ms}} p^2(t) \, dt}{\int_0^{\infty} p^2(t) \, dt} \times 100\%$$
+
+4. **Speech Transmission Index (STI)** (IEC 60268-16):
+   Empirical mapping based on $C_{50}$ and signal-to-noise ratio:
+   $$STI \approx \text{clamp}\left( \frac{C_{50} + 15}{30} \times (0.75 + 0.25 \times \text{SNR factor}), 0.0, 1.0 \right)$$
+   Categorized into standard qualitative bands: *Bad (< 0.30)*, *Poor (0.30 - 0.44)*, *Fair (0.45 - 0.59)*, *Good (0.60 - 0.74)*, and *Excellent ($\ge 0.75$)*.
+
 ---
 
 ## 4. Mobile Sensor & Hardware Integrations
@@ -107,6 +129,13 @@ Beyond digital signal processing, AcoustiTape integrates mobile hardware sensors
    - Dual-room comparative mode overlays two Schroeder curves and grouped octave bars (e.g. Before vs After acoustic treatment).
 6. **Native Audit Report Sharing**:
    - Formats complete ISO 3382 audit scorecards for immediate export.
+7. **Acoustic Treatment & Panel Simulator**:
+   - Computes required absorption differential $\Delta A = A_{\text{target}} - A_{\text{current}}$.
+   - Calculates exact panel quantities and surface area ($m^2$) for materials including 50mm Dense Rockwool ($\alpha = 0.85$), Pyramid Foam ($\alpha = 0.55$), Corner Bass Traps ($\alpha = 0.80$), and Heavy Velour Curtains.
+   - Provides live post-treatment $RT_{60}$ prediction and installation placement advice.
+8. **In-App Acoustic Audio Signal Generator**:
+   - Synthesizes 16-bit PCM RIFF WAV audio in pure JavaScript.
+   - Generates band-limited 1 kHz Dirac Impulse bursts, 2.5s Logarithmic Sine Sweeps (20 Hz - 20 kHz), and Calibrated Pink Noise (-3 dB/octave) for speaker playback.
 
 ---
 

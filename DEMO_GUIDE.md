@@ -44,9 +44,34 @@ Use this 3-minute walkthrough to demonstrate AcoustiTape to your teacher:
 2. Tap **"Compare"**:
    - Select 2 rooms (e.g. *"Classroom"* vs *"Tiled Corridor"*).
    - Show the **Comparison Modal**: point out the overlaid Schroeder decay curves and grouped octave bars showing the differential $\Delta RT_{60}$.
-3. Switch to the **Standards** tab:
-   - Demonstrate the **Sabine Absorption Calculator** ($A = 0.161 \cdot V / RT_{60}$).
+
+---
+
+### Step 5: Advanced Features Walkthrough (30 seconds)
+1. **Acoustic Clarity & STI Intelligibility**:
+   - In **Results**, scroll to the *"Acoustic Clarity & Intelligibility"* card.
+   - Point out **$C_{50}$ (Speech Clarity in dB)**, **$C_{80}$ (Music Clarity)**, and the **Speech Transmission Index (STI = 0.78 - Excellent)**.
+   - Explain: *"ISO 3382 uses $C_{50}$ to measure the ratio of early direct sound to late reverberation. In classrooms, $C_{50} > 0\text{ dB}$ ensures students can understand speech consonants clearly."*
+2. **Acoustic Treatment Simulator**:
+   - Switch to the **Standards** tab and tap **"Treatment Simulator"**.
+   - Pick *"Dense Rockwool Panels"* or *"Corner Bass Traps"*.
+   - Show your teacher how the app dynamically calculates the exact number of panels ($m^2$) needed to achieve a target $RT_{60}$ and predicts post-treatment decay!
+3. **In-App Test Signal Generator**:
+   - On the **Measure** screen, tap **"Acoustic Signal Generator"**.
+   - Tap **Play** on the *Dirac Acoustic Impulse Burst* or *Logarithmic Sine Sweep* to demonstrate how large auditoriums can be measured without handclapping by connecting the phone to external speakers!
 4. Tap **"Export & Share Report"** on Results screen to show the native sharing card!
+
+---
+
+### Common Teacher Questions & Answers:
+
+**Q: What is the difference between RT60 and Speech Clarity ($C_{50}$)?**
+> *Answer*: "$RT_{60}$ measures how long sound lingers in a room until it decays by 60 dB. Speech Clarity ($C_{50}$) evaluates speech intelligibility by comparing early sound energy (first 50ms) to late reverberation energy. Even if $RT_{60}$ is acceptable, strong late reflections can mask consonants and ruin speech definition ($D_{50}$)."
+
+**Q: How does the Acoustic Treatment Simulator work?**
+> *Answer*: "It applies Sabine and Eyring absorption equations:
+> $$A = \frac{0.161 \cdot V}{RT_{60}}$$
+> By subtracting current room absorption from the target room absorption ($\Delta A = A_{\text{target}} - A_{\text{current}}$) and factoring in laboratory absorption coefficients ($\alpha$) of materials like 50mm Rockwool ($\alpha = 0.85$) or Corner Bass Traps ($\alpha = 0.80$), it solves for the exact square meters and panel counts required."
 
 ---
 

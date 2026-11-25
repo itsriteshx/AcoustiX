@@ -1,6 +1,7 @@
 import { detectImpulse } from './impulseDetector.js';
 import { computeSchroederDecay } from './schroeder.js';
 import { filterOctaveBands } from './octaveFilter.js';
+import { computeClarityMetrics } from './clarityMetrics.js';
 import { ROOM_TARGET_SPECS } from '../../constants/targets.js';
 
 /**
@@ -37,7 +38,10 @@ export function analyzeAcoustics(
   // Step 3: 6-Band Octave Filtering (125 Hz to 4 kHz)
   const spectral = filterOctaveBands(impulse.decaySamples, sampleRate);
 
-  // Step 4: Evaluate Room Suitability against ISO 3382 benchmarks
+  // Step 4: ISO 3382 Speech Clarity (C50), Music Clarity (C80), D50 and STI
+  const clarity = computeClarityMetrics(impulse.decaySamples, sampleRate, impulse.snrDb);
+
+  // Step 5: Evaluate Room Suitability against ISO 3382 benchmarks
   const roomSuitability = Object.values(ROOM_TARGET_SPECS).map((spec) => {
     const isCompliant =
       decay.overallRT60 >= spec.minRT60 && decay.overallRT60 <= spec.maxRT60;
@@ -81,6 +85,7 @@ export function analyzeAcoustics(
     snrDb: impulse.snrDb,
     bassRatio: spectral.bassRatio,
     trebleRatio: spectral.trebleRatio,
+    clarity,
     octaveBands: spectral.octaveBands,
     decayCurve: decay.decayCurve,
     location: locationData || {

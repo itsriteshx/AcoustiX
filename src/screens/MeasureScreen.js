@@ -13,6 +13,7 @@ import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { LiveVUMeter } from '../components/measurement/LiveVUMeter';
 import { LevelBubble } from '../components/measurement/LevelBubble';
 import { RoomPhotoPicker } from '../components/measurement/RoomPhotoPicker';
+import { SignalGeneratorModal } from '../components/measurement/SignalGeneratorModal';
 import {
   startImpulseRecording,
   stopImpulseRecording,
@@ -34,6 +35,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
   const [locationData, setLocationData] = useState(null);
   const [photoUri, setPhotoUri] = useState(null);
   const [surfaceMaterials, setSurfaceMaterials] = useState([]);
+  const [showSignalGen, setShowSignalGen] = useState(false);
 
   // Day 6 Accelerometer Stability State
   const [sensorData, setSensorData] = useState({
@@ -315,10 +317,26 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
             <Text style={styles.secondaryButtonText}>Test with Demo Impulse</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: 'rgba(6, 182, 212, 0.4)' }]}
+            disabled={isRecording || isProcessing}
+            onPress={() => setShowSignalGen(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="volume-high-outline" size={16} color={COLORS.primary} />
+            <Text style={styles.secondaryButtonText}>Acoustic Signal Generator</Text>
+          </TouchableOpacity>
+
           <Text style={styles.dayNotice}>
-            Days 4, 5, 6 Active: Schroeder Integration, 6-Band Octave Filters, and Accelerometer Stability Guard.
+            Schroeder Engine, 6-Band Octave Filters, C50/C80 Clarity & Signal Generator Active.
           </Text>
         </View>
+
+        {/* In-App Test Signal Generator Modal */}
+        <SignalGeneratorModal
+          visible={showSignalGen}
+          onClose={() => setShowSignalGen(false)}
+        />
 
         {/* Real DSP Measurement Summary Card */}
         {captureStats && (

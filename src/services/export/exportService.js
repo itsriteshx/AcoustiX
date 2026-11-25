@@ -50,6 +50,16 @@ ISO 3382 TECHNICAL PARAMETERS:
   • Peak Sound Pressure: ${measurement.peakDb} dBFS
   • Background Noise Floor: ${measurement.noiseFloorDb} dBFS
   • Signal-to-Noise Ratio: ${measurement.snrDb} dB
+${
+  measurement.clarity
+    ? `
+ACOUSTIC CLARITY & SPEECH INTELLIGIBILITY:
+  • Speech Transmission Index (STI): ${measurement.clarity.sti.toFixed(2)} [${measurement.clarity.stiRating.toUpperCase()}]
+  • Speech Clarity (C50): ${measurement.clarity.c50 > 0 ? '+' : ''}${measurement.clarity.c50.toFixed(1)} dB (${measurement.clarity.speechSuitability})
+  • Music Clarity (C80): ${measurement.clarity.c80 > 0 ? '+' : ''}${measurement.clarity.c80.toFixed(1)} dB (${measurement.clarity.musicSuitability})
+  • Sound Definition (D50): ${measurement.clarity.d50.toFixed(1)}%`
+    : ''
+}
 
 FREQUENCY SPECTRUM (OCTAVE BANDS):
 ${octavesTable}

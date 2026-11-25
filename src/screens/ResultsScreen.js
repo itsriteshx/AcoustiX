@@ -140,6 +140,65 @@ export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
           />
         </View>
 
+        {/* Advanced Acoustic Clarity & Speech Intelligibility (C50, C80, D50, STI) */}
+        {measurement.clarity && (
+          <View style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="sparkles" size={18} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>Acoustic Clarity & Intelligibility (ISO 3382)</Text>
+            </View>
+
+            <View style={styles.clarityHeroRow}>
+              <View style={styles.stiBadgeContainer}>
+                <Text style={styles.stiLabel}>SPEECH TRANSMISSION INDEX (STI)</Text>
+                <View style={styles.stiValueRow}>
+                  <Text style={styles.stiValue}>
+                    {measurement.clarity.sti.toFixed(2)}
+                  </Text>
+                  <View style={styles.stiRatingPill}>
+                    <Text style={styles.stiRatingText}>{measurement.clarity.stiRating.toUpperCase()}</Text>
+                  </View>
+                </View>
+                <Text style={styles.stiDesc}>{measurement.clarity.speechSuitability}</Text>
+              </View>
+            </View>
+
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricCell}>
+                <Text style={styles.metricLabel}>C50 (Speech Clarity)</Text>
+                <Text style={[styles.metricValue, { color: COLORS.primary }]}>
+                  {measurement.clarity.c50 > 0 ? '+' : ''}{measurement.clarity.c50.toFixed(1)} dB
+                </Text>
+                <Text style={styles.metricSub}>Early/Late 50ms (Target: &gt; 0 dB)</Text>
+              </View>
+
+              <View style={styles.metricCell}>
+                <Text style={styles.metricLabel}>C80 (Music Clarity)</Text>
+                <Text style={[styles.metricValue, { color: COLORS.accent }]}>
+                  {measurement.clarity.c80 > 0 ? '+' : ''}{measurement.clarity.c80.toFixed(1)} dB
+                </Text>
+                <Text style={styles.metricSub}>Early/Late 80ms (Target: -2 to +4 dB)</Text>
+              </View>
+
+              <View style={styles.metricCell}>
+                <Text style={styles.metricLabel}>D50 (Definition)</Text>
+                <Text style={styles.metricValue}>
+                  {measurement.clarity.d50.toFixed(1)}%
+                </Text>
+                <Text style={styles.metricSub}>Early Energy Ratio (&gt; 50% Clear)</Text>
+              </View>
+
+              <View style={styles.metricCell}>
+                <Text style={styles.metricLabel}>Music Character</Text>
+                <Text style={[styles.metricValue, { fontSize: 13, color: COLORS.text }]}>
+                  {measurement.clarity.c80 >= -2 && measurement.clarity.c80 <= 4 ? 'Optimal Blend' : measurement.clarity.c80 > 4 ? 'High Articulation' : 'Warm Sustain'}
+                </Text>
+                <Text style={styles.metricSub} numberOfLines={2}>{measurement.clarity.musicSuitability}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Detailed ISO 3382 Acoustic Metrics */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>ISO 3382 Technical Parameters</Text>
@@ -379,6 +438,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
+  },
+  clarityHeroRow: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  stiBadgeContainer: {
+    backgroundColor: COLORS.surface,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(6, 182, 212, 0.3)',
+  },
+  stiLabel: {
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+  },
+  stiValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 4,
+  },
+  stiValue: {
+    color: COLORS.text,
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  stiRatingPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  stiRatingText: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  stiDesc: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 15,
   },
   metricsGrid: {
     flexDirection: 'row',
