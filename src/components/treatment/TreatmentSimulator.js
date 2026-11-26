@@ -81,10 +81,21 @@ export const TreatmentSimulator = ({ currentRT60 = 0.65 }) => {
   const [selectedMaterial, setSelectedMaterial] = useState(TREATMENT_MATERIALS[0]);
   const [customPanels, setCustomPanels] = useState(null);
 
-  const l = Math.max(1, parseFloat(length) || 5.5);
-  const w = Math.max(1, parseFloat(width) || 4.2);
-  const h = Math.max(1, parseFloat(height) || 2.8);
-  const rtCurrent = Math.max(0.15, parseFloat(measuredRT) || 0.65);
+  const rawL = parseFloat(length);
+  const rawW = parseFloat(width);
+  const rawH = parseFloat(height);
+  const rawRT = parseFloat(measuredRT);
+
+  const isInputValid =
+    Number.isFinite(rawL) && rawL > 0 &&
+    Number.isFinite(rawW) && rawW > 0 &&
+    Number.isFinite(rawH) && rawH > 0 &&
+    Number.isFinite(rawRT) && rawRT >= 0.15 && rawRT <= 6.0;
+
+  const l = isInputValid ? rawL : 5.5;
+  const w = isInputValid ? rawW : 4.2;
+  const h = isInputValid ? rawH : 2.8;
+  const rtCurrent = isInputValid ? rawRT : 0.65;
   const rtTarget = Math.max(0.15, targetRT);
 
   const volume = l * w * h;
@@ -182,6 +193,13 @@ export const TreatmentSimulator = ({ currentRT60 = 0.65 }) => {
       </View>
 
       {/* Target RT Presets */}
+      {!isInputValid && (
+        <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', padding: 8, borderRadius: 8, marginBottom: 10 }}>
+          <Text style={{ color: COLORS.danger, fontSize: 11, fontWeight: '600' }}>
+            Invalid dimensions or RT60: enter positive numbers (RT60: 0.15s – 6.0s). Showing default preview.
+          </Text>
+        </View>
+      )}
       <Text style={styles.sectionLabel}>Select Acoustic Target Goal:</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetsRow}>
         {TARGET_PRESETS.map((preset) => {

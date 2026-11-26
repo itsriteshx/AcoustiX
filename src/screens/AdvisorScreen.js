@@ -22,15 +22,21 @@ export const AdvisorScreen = () => {
   const [targetRT, setTargetRT] = useState('0.6');
 
   // Sabine Equation: RT60 = 0.161 * V / A => A = 0.161 * V / RT60
-  const l = parseFloat(length) || 0;
-  const w = parseFloat(width) || 0;
-  const h = parseFloat(height) || 0;
-  const rt = parseFloat(targetRT) || 0.6;
+  const l = parseFloat(length);
+  const w = parseFloat(width);
+  const h = parseFloat(height);
+  const rt = parseFloat(targetRT);
 
-  const volume = l * w * h;
-  const surfaceArea = 2 * (l * w + l * h + w * h);
-  const requiredAbsorption = rt > 0 && volume > 0 ? (0.161 * volume) / rt : 0;
-  const averageAbsorptionCoeff = surfaceArea > 0 ? requiredAbsorption / surfaceArea : 0;
+  const isInputValid =
+    Number.isFinite(l) && l > 0 &&
+    Number.isFinite(w) && w > 0 &&
+    Number.isFinite(h) && h > 0 &&
+    Number.isFinite(rt) && rt >= 0.15 && rt <= 6.0;
+
+  const volume = isInputValid ? l * w * h : 0;
+  const surfaceArea = isInputValid ? 2 * (l * w + l * h + w * h) : 0;
+  const requiredAbsorption = isInputValid ? (0.161 * volume) / rt : 0;
+  const averageAbsorptionCoeff = isInputValid && surfaceArea > 0 ? requiredAbsorption / surfaceArea : 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -175,6 +181,11 @@ export const AdvisorScreen = () => {
             </View>
 
             <View style={styles.calcResultBox}>
+              {!isInputValid && (
+                <Text style={{ color: COLORS.danger, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>
+                  Invalid input: dimensions must be &gt; 0m and Target RT60 between 0.15s and 6.0s.
+                </Text>
+              )}
               <View style={styles.calcResultRow}>
                 <Text style={styles.resultLabel}>Room Volume (V):</Text>
                 <Text style={styles.resultValue}>{volume.toFixed(1)} m³</Text>

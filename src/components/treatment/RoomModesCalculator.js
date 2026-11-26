@@ -10,10 +10,21 @@ export const RoomModesCalculator = () => {
   const [height, setHeight] = useState('2.8');
   const [rt60, setRt60] = useState('0.6');
 
-  const l = parseFloat(length) || 5.5;
-  const w = parseFloat(width) || 4.2;
-  const h = parseFloat(height) || 2.8;
-  const rt = parseFloat(rt60) || 0.6;
+  const rawL = parseFloat(length);
+  const rawW = parseFloat(width);
+  const rawH = parseFloat(height);
+  const rawRT = parseFloat(rt60);
+
+  const isInputValid =
+    Number.isFinite(rawL) && rawL > 0 &&
+    Number.isFinite(rawW) && rawW > 0 &&
+    Number.isFinite(rawH) && rawH > 0 &&
+    Number.isFinite(rawRT) && rawRT >= 0.15 && rawRT <= 6.0;
+
+  const l = isInputValid ? rawL : 5.5;
+  const w = isInputValid ? rawW : 4.2;
+  const h = isInputValid ? rawH : 2.8;
+  const rt = isInputValid ? rawRT : 0.6;
 
   const analysis = calculateRoomModes(l, w, h, rt);
 
@@ -72,6 +83,13 @@ export const RoomModesCalculator = () => {
       </View>
 
       {/* Schroeder Frequency & Bolt Ratio Status */}
+      {!isInputValid && (
+        <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', padding: 8, borderRadius: 8, marginBottom: 10 }}>
+          <Text style={{ color: COLORS.danger, fontSize: 11, fontWeight: '600' }}>
+            Invalid input: dimensions must be &gt; 0m and RT60 between 0.15s and 6.0s.
+          </Text>
+        </View>
+      )}
       <View style={styles.summaryCard}>
         <View style={styles.summaryTopRow}>
           <View>

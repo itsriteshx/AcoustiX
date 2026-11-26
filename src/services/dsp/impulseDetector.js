@@ -131,16 +131,38 @@ export function detectImpulse(samples, sampleRate = 44100, config = {}) {
 
   let isDoubleClap = false;
   if (maxEnvelope > 0) {
-    let hasDipped = false;
     const dipLevel = maxEnvelope * cfg.doubleClapDipRatio;
     const reboundLevel = maxEnvelope * cfg.doubleClapReboundRatio;
 
+    // Forward scan: detect a second clap occurring AFTER the main peak
+    let hasDippedAfter = false;
     for (let b = 1; b < envelope.length; b++) {
       if (envelope[b] < dipLevel) {
-        hasDipped = true;
-      } else if (hasDipped && envelope[b] > reboundLevel) {
+        hasDippedAfter = true;
+      } else if (hasDippedAfter && envelope[b] > reboundLevel) {
         isDoubleClap = true;
         break;
+      }
+    }
+
+    // Backward scan: detect an earlier clap occurring BEFORE a louder main peak
+    if (!isDoubleClap && peakBlock > 2) {
+      const startBack = Math.max(0, peakBlock - searchBlocks);
+      let hasDippedBefore = false;
+      for (let b = peakBlock - 1; b >= startBack; b--) {
+        const blockStart = b * blockSize;
+        let sumSq = 0;
+        for (let j = 0; j < blockSize; j++) {
+          const s = samples[blockStart + j];
+          sumSq += s * s;
+        }
+        const envVal = Math.sqrt(sumSq / blockSize);
+        if (envVal < dipLevel) {
+          hasDippedBefore = true;
+        } else if (hasDippedBefore && envVal > reboundLevel) {
+          isDoubleClap = true;
+          break;
+        }
       }
     }
   }
