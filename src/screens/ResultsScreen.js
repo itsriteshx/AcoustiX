@@ -78,6 +78,14 @@ export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
         {/* Hero RT60 Badge */}
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>REVERBERATION TIME (RT60)</Text>
+          {measurement.multiClapStats && (
+            <View style={styles.avgBadge}>
+              <Ionicons name="layers-outline" size={12} color={COLORS.primary} />
+              <Text style={styles.avgBadgeText}>
+                {measurement.multiClapStats.count}-Position ISO Avg • σ = ±{measurement.multiClapStats.stdDev.toFixed(2)}s
+              </Text>
+            </View>
+          )}
           <View style={styles.heroValueRow}>
             <Text style={styles.heroValue}>{measurement.overallRT60.toFixed(2)}</Text>
             <Text style={styles.heroUnit}>seconds</Text>
@@ -358,6 +366,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.2,
+  },
+  avgBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginTop: 6,
+  },
+  avgBadgeText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   heroValueRow: {
     flexDirection: 'row',

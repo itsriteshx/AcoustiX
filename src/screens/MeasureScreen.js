@@ -14,6 +14,7 @@ import { LiveVUMeter } from '../components/measurement/LiveVUMeter';
 import { LevelBubble } from '../components/measurement/LevelBubble';
 import { RoomPhotoPicker } from '../components/measurement/RoomPhotoPicker';
 import { SignalGeneratorModal } from '../components/measurement/SignalGeneratorModal';
+import { SPLMeterModal } from '../components/measurement/SPLMeterModal';
 import {
   startImpulseRecording,
   stopImpulseRecording,
@@ -26,6 +27,7 @@ import {
 import { getCurrentLocation } from '../services/location/locationService';
 import { analyzeAcoustics } from '../services/dsp/acousticAnalyzer';
 import { generateSampleMeasurement } from '../services/dsp/mockAcoustics';
+import { averageMeasurements } from '../services/dsp/multiClapAverager';
 
 export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
   const [recordingState, setRecordingState] = useState('idle'); // 'idle' | 'recording' | 'processing'
@@ -36,6 +38,9 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
   const [photoUri, setPhotoUri] = useState(null);
   const [surfaceMaterials, setSurfaceMaterials] = useState([]);
   const [showSignalGen, setShowSignalGen] = useState(false);
+  const [showSPLMeter, setShowSPLMeter] = useState(false);
+  const [isMultiClapMode, setIsMultiClapMode] = useState(false);
+  const [clapBuffer, setClapBuffer] = useState([]);
 
   // Day 6 Accelerometer Stability State
   const [sensorData, setSensorData] = useState({
@@ -98,6 +103,26 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
     }
   };
 
+  const finalizeMeasurement = (measurement) => {
+    if (!isMultiClapMode) {
+      onMeasurementComplete(measurement);
+      return;
+    }
+
+    const updated = [...clapBuffer, measurement];
+    if (updated.length < 3) {
+      setClapBuffer(updated);
+      Alert.alert(
+        `Clap ${updated.length} of 3 Captured`,
+        `RT60: ${measurement.overallRT60.toFixed(2)}s. Move to another spot in the room and record clap #${updated.length + 1}.`
+      );
+    } else {
+      const averaged = averageMeasurements(updated);
+      setClapBuffer([]);
+      onMeasurementComplete(averaged);
+    }
+  };
+
   // Stops recording and executes the full DSP pipeline (Days 3, 4, 5)
   const handleStopLiveRecording = async () => {
     if (recordingTimeoutRef.current) {
@@ -152,7 +177,7 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
 
       setTimeout(() => {
         setRecordingState('idle');
-        onMeasurementComplete(measurement);
+        finalizeMeasurement(measurement);
       }, 600);
     } catch (error) {
       console.error('[MeasureScreen] Analysis error:', error);
@@ -189,8 +214,13 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
     setRecordingState('processing');
     setTimeout(() => {
       const sample = generateSampleMeasurement(roomName);
+      if (isMultiClapMode) {
+        // Add slight realistic spatial variance for multi-position demo
+        const jitter = Number(((Math.random() - 0.5) * 0.06).toFixed(2));
+        sample.overallRT60 = Number(Math.max(0.2, sample.overallRT60 + jitter).toFixed(2));
+      }
       setRecordingState('idle');
-      onMeasurementComplete(sample);
+      finalizeMeasurement(sample);
     }, 800);
   };
 
@@ -282,6 +312,51 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
 
         {/* Action Buttons */}
         <View style={styles.actionSection}>
+          {/* Multi-Clap Averaging Toggle */}
+          <View style={styles.modeToggleRow}>
+            <TouchableOpacity
+              style={[styles.modeChip, !isMultiClapMode && styles.modeChipActive]}
+              onPress={() => {
+                setIsMultiClapMode(false);
+                setClapBuffer([]);
+              }}
+              disabled={isRecording || isProcessing}
+            >
+              <Text style={[styles.modeChipText, !isMultiClapMode && styles.modeChipTextActive]}>
+                Single Clap
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeChip, isMultiClapMode && styles.modeChipActive]}
+              onPress={() => setIsMultiClapMode(true)}
+              disabled={isRecording || isProcessing}
+            >
+              <Text style={[styles.modeChipText, isMultiClapMode && styles.modeChipTextActive]}>
+                3-Clap ISO Avg ({clapBuffer.length}/3)
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {isMultiClapMode && clapBuffer.length > 0 && (
+            <View style={styles.clapBufferCard}>
+              <Text style={styles.clapBufferTitle}>
+                Captured Claps ({clapBuffer.length}/3):{' '}
+                {clapBuffer.map((c, idx) => `#${idx + 1}: ${c.overallRT60}s`).join('  •  ')}
+              </Text>
+              {clapBuffer.length >= 2 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const avg = averageMeasurements(clapBuffer);
+                    setClapBuffer([]);
+                    onMeasurementComplete(avg);
+                  }}
+                >
+                  <Text style={styles.finalizeNowText}>Average {clapBuffer.length} Claps Now →</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           {isRecording ? (
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: COLORS.danger }]}
@@ -327,8 +402,20 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
             <Text style={styles.secondaryButtonText}>Acoustic Signal Generator</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: 'rgba(16, 185, 129, 0.4)' }]}
+            disabled={isRecording || isProcessing}
+            onPress={() => setShowSPLMeter(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="speedometer-outline" size={16} color={COLORS.accent} />
+            <Text style={[styles.secondaryButtonText, { color: COLORS.accent }]}>
+              Live SPL Decibel Meter
+            </Text>
+          </TouchableOpacity>
+
           <Text style={styles.dayNotice}>
-            Schroeder Engine, 6-Band Octave Filters, C50/C80 Clarity & Signal Generator Active.
+            Schroeder Engine, 6-Band Octave Filters, C50/C80 Clarity, 3-Clap Avg & SPL Meter Active.
           </Text>
         </View>
 
@@ -336,6 +423,12 @@ export const MeasureScreen = ({ onMeasurementComplete, lastMeasurement }) => {
         <SignalGeneratorModal
           visible={showSignalGen}
           onClose={() => setShowSignalGen(false)}
+        />
+
+        {/* Live SPL Decibel Meter Modal */}
+        <SPLMeterModal
+          visible={showSPLMeter}
+          onClose={() => setShowSPLMeter(false)}
         />
 
         {/* Real DSP Measurement Summary Card */}
@@ -541,6 +634,56 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.sm,
     alignItems: 'center',
     gap: 8,
+  },
+  modeToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    width: '100%',
+    marginBottom: 4,
+  },
+  modeChip: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modeChipActive: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  modeChipText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modeChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  clapBufferCard: {
+    width: '100%',
+    backgroundColor: 'rgba(6, 182, 212, 0.08)',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(6, 182, 212, 0.3)',
+    alignItems: 'center',
+    gap: 4,
+  },
+  clapBufferTitle: {
+    color: COLORS.text,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  finalizeNowText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
