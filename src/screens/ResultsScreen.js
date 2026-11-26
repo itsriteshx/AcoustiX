@@ -13,6 +13,7 @@ import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { DecayCurveChart } from '../components/charts/DecayCurveChart';
 import { OctaveBarsChart } from '../components/charts/OctaveBarsChart';
 import { shareAuditReport } from '../services/export/exportService';
+import { exportPdfCertificate } from '../services/export/pdfCertificate';
 
 export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
   if (!measurement) {
@@ -252,14 +253,25 @@ export const ResultsScreen = ({ measurement, onNewMeasurement }) => {
           ))}
         </View>
 
-        {/* Share & Export Report Button */}
+        {/* Share & Export Report Buttons */}
         <TouchableOpacity
           style={styles.shareButton}
+          onPress={() => exportPdfCertificate(measurement)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="document-text-outline" size={18} color="#000" />
+          <Text style={styles.shareButtonText}>Export PDF Acoustic Certificate</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.shareButton, styles.secondaryShareButton]}
           onPress={() => shareAuditReport(measurement)}
           activeOpacity={0.8}
         >
-          <Ionicons name="share-social-outline" size={18} color="#000" />
-          <Text style={styles.shareButtonText}>Export & Share Acoustic Report</Text>
+          <Ionicons name="share-social-outline" size={18} color={COLORS.primary} />
+          <Text style={[styles.shareButtonText, { color: COLORS.primary }]}>
+            Share Text Audit Summary
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -574,6 +586,12 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 14,
     fontWeight: '700',
+  },
+  secondaryShareButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginTop: 0,
   },
   primaryButton: {
     backgroundColor: COLORS.primary,

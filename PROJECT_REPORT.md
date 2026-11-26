@@ -136,6 +136,13 @@ Beyond digital signal processing, AcoustiTape integrates mobile hardware sensors
 8. **In-App Acoustic Audio Signal Generator**:
    - Synthesizes 16-bit PCM RIFF WAV audio in pure JavaScript.
    - Generates band-limited 1 kHz Dirac Impulse bursts, 2.5s Logarithmic Sine Sweeps (20 Hz - 20 kHz), and Calibrated Pink Noise (-3 dB/octave) for speaker playback.
+9. **ISO 3382 3-Clap Averaging Mode & Live SPL Decibel Meter**:
+   - Multi-position averaging computes mean $RT_{60}$, averaged Schroeder curves, and spatial standard deviation ($\sigma$) across 3 room locations.
+   - Live SPL Decibel Meter (`dBA` estimate, Min/Avg/Peak Hold) monitors ambient noise with WHO/OSHA hearing safety zones.
+10. **Room Modes & Standing Wave Calculator**:
+   - Computes axial and tangential eigenfrequencies ($f_{n_x,n_y,n_z} = \frac{c}{2}\sqrt{(n_x/L)^2 + (n_y/W)^2 + (n_z/H)^2}$), Schroeder crossover frequency ($f_s = 2000\sqrt{RT_{60}/V}$), and Bolt-area dimension ratio warnings.
+11. **Printable PDF Acoustic Compliance Certificate** (`expo-print`, `expo-sharing`):
+   - Renders an A4 print-ready ISO 3382 certificate with room metadata, clarity indices ($C_{50}, C_{80}, D_{50}, STI$), octave breakdown table, and Pass/Fail compliance stamp.
 
 ---
 

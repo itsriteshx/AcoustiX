@@ -59,7 +59,10 @@ Use this 3-minute walkthrough to demonstrate AcoustiTape to your teacher:
 3. **In-App Test Signal Generator**:
    - On the **Measure** screen, tap **"Acoustic Signal Generator"**.
    - Tap **Play** on the *Dirac Acoustic Impulse Burst* or *Logarithmic Sine Sweep* to demonstrate how large auditoriums can be measured without handclapping by connecting the phone to external speakers!
-4. Tap **"Export & Share Report"** on Results screen to show the native sharing card!
+4. **3-Clap ISO Averaging, Live SPL Meter & Room Modes**:
+   - On **Measure**, toggle **3-Clap ISO Avg** to show multi-position spatial averaging ($\sigma$), or tap **Live SPL Decibel Meter** for real-time dBA monitoring.
+   - On **Advisor**, tap the **Modes** tab to display standing-wave bass resonance frequencies and the Schroeder crossover frequency.
+5. Tap **"Export PDF Acoustic Certificate"** on Results screen to generate and share a printable A4 ISO 3382 compliance certificate!
 
 ---
 

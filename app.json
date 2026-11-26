@@ -54,7 +54,8 @@
           "photosPermission": "AcoustiTape accesses photos to attach room images to acoustic measurement reports.",
           "cameraPermission": "AcoustiTape uses the camera to capture room photos to document wall surfaces and acoustic treatments."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "web": {
       "favicon": "./assets/favicon.png"
