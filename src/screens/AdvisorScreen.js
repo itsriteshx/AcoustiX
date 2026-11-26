@@ -12,9 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { ROOM_TARGET_SPECS } from '../constants/targets';
 import { TreatmentSimulator } from '../components/treatment/TreatmentSimulator';
+import { RoomModesCalculator } from '../components/treatment/RoomModesCalculator';
 
 export const AdvisorScreen = () => {
-  const [activeSubTab, setActiveSubTab] = useState('simulator'); // 'simulator' | 'calculator' | 'standards'
+  const [activeSubTab, setActiveSubTab] = useState('simulator'); // 'simulator' | 'modes' | 'calculator' | 'standards'
   const [length, setLength] = useState('6');
   const [width, setWidth] = useState('5');
   const [height, setHeight] = useState('3');
@@ -51,11 +52,26 @@ export const AdvisorScreen = () => {
           >
             <Ionicons
               name="construct-outline"
-              size={15}
+              size={14}
               color={activeSubTab === 'simulator' ? COLORS.primary : COLORS.textMuted}
             />
             <Text style={[styles.navTabText, activeSubTab === 'simulator' && styles.navTabTextActive]}>
-              Treatment Simulator
+              Treatment
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navTab, activeSubTab === 'modes' && styles.navTabActive]}
+            onPress={() => setActiveSubTab('modes')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="pulse-outline"
+              size={14}
+              color={activeSubTab === 'modes' ? COLORS.primary : COLORS.textMuted}
+            />
+            <Text style={[styles.navTabText, activeSubTab === 'modes' && styles.navTabTextActive]}>
+              Modes
             </Text>
           </TouchableOpacity>
 
@@ -66,11 +82,11 @@ export const AdvisorScreen = () => {
           >
             <Ionicons
               name="calculator-outline"
-              size={15}
+              size={14}
               color={activeSubTab === 'calculator' ? COLORS.primary : COLORS.textMuted}
             />
             <Text style={[styles.navTabText, activeSubTab === 'calculator' && styles.navTabTextActive]}>
-              Sabine Math
+              Sabine
             </Text>
           </TouchableOpacity>
 
@@ -81,11 +97,11 @@ export const AdvisorScreen = () => {
           >
             <Ionicons
               name="book-outline"
-              size={15}
+              size={14}
               color={activeSubTab === 'standards' ? COLORS.primary : COLORS.textMuted}
             />
             <Text style={[styles.navTabText, activeSubTab === 'standards' && styles.navTabTextActive]}>
-              ISO Targets
+              ISO
             </Text>
           </TouchableOpacity>
         </View>
@@ -93,6 +109,11 @@ export const AdvisorScreen = () => {
         {/* View 1: Advanced Acoustic Treatment Simulator */}
         {activeSubTab === 'simulator' && (
           <TreatmentSimulator currentRT60={0.65} />
+        )}
+
+        {/* View 2: Room Modes & Standing Wave Calculator */}
+        {activeSubTab === 'modes' && (
+          <RoomModesCalculator />
         )}
 
         {/* View 2: Sabine Absorption Calculator Card */}
