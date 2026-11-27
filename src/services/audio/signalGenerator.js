@@ -1,7 +1,8 @@
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 
-let currentSound = null;
+let currentPlayer = null;
+let currentListener = null;
 
 /**
  * Encodes a Uint8Array into a standard Base64 string in pure JavaScript.
@@ -227,29 +228,25 @@ export async function playAcousticSignal(signalType = 'impulse', onFinished) {
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: false,
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      interruptionMode: 'doNotMix',
     });
 
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: filePath },
-      { shouldPlay: true, volume: 1.0 }
-    );
+    const player = createAudioPlayer({ uri: filePath });
+    player.volume = 1.0;
+    currentPlayer = player;
 
-    currentSound = sound;
-
-    sound.setOnPlaybackStatusUpdate((status) => {
+    currentListener = player.addListener('playbackStatusUpdate', (status) => {
       if (status.didJustFinish) {
-        sound.unloadAsync().catch(() => {});
-        currentSound = null;
+        stopAcousticSignal().catch(() => {});
         if (onFinished) onFinished();
       }
     });
 
+    player.play();
     return true;
   } catch (error) {
     console.error('[signalGenerator] Playback error:', error);
@@ -262,11 +259,17 @@ export async function playAcousticSignal(signalType = 'impulse', onFinished) {
  * Stops any actively playing test signal.
  */
 export async function stopAcousticSignal() {
-  if (currentSound) {
+  if (currentListener) {
     try {
-      await currentSound.stopAsync();
-      await currentSound.unloadAsync();
+      currentListener.remove();
     } catch (_) {}
-    currentSound = null;
+    currentListener = null;
+  }
+  if (currentPlayer) {
+    try {
+      currentPlayer.pause();
+      currentPlayer.remove();
+    } catch (_) {}
+    currentPlayer = null;
   }
 }

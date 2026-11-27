@@ -1,4 +1,7 @@
-import { Audio } from 'expo-av';
+import {
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync,
+} from 'expo-audio';
 import { Alert, Linking, Platform } from 'react-native';
 
 /**
@@ -7,12 +10,12 @@ import { Alert, Linking, Platform } from 'react-native';
  */
 export async function requestMicrophonePermission() {
   try {
-    const { status: existingStatus } = await Audio.getPermissionsAsync();
+    const { status: existingStatus } = await getRecordingPermissionsAsync();
     if (existingStatus === 'granted') {
       return true;
     }
 
-    const { status } = await Audio.requestPermissionsAsync();
+    const { status } = await requestRecordingPermissionsAsync();
     if (status === 'granted') {
       return true;
     }
@@ -49,7 +52,7 @@ export async function requestMicrophonePermission() {
  */
 export async function checkMicrophonePermission() {
   try {
-    const { status } = await Audio.getPermissionsAsync();
+    const { status } = await getRecordingPermissionsAsync();
     return status === 'granted';
   } catch (error) {
     console.warn('[audioPermissions] Error checking permissions:', error);

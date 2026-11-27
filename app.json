@@ -34,13 +34,12 @@
     },
     "plugins": [
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "AcoustiTape requires access to your microphone to capture room impulse responses (such as a handclap) for calculating reverberation time (RT60)."
         }
       ],
       "expo-font",
-      "expo-audio",
       "expo-asset",
       [
         "expo-location",

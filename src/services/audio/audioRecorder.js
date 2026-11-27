@@ -1,32 +1,37 @@
-import { Audio } from 'expo-av';
+import {
+  AudioModule,
+  IOSOutputFormat,
+  AudioQuality,
+  setAudioModeAsync,
+} from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 import { requestMicrophonePermission } from './audioPermissions';
 import { base64ToUint8Array, parseWavAudio } from './wavParser';
 
-let currentRecording = null;
-let statusInterval = null;
+let currentRecorder = null;
+let meteringInterval = null;
 
 /**
  * Audiophile recording preset optimized for ISO 3382 acoustic measurement.
  * Uses 16-bit Linear PCM WAV on iOS (uncompressed) and high-bitrate mono on Android.
  */
 const ACOUSTIC_RECORDING_PRESET = {
+  extension: '.wav',
+  sampleRate: 44100,
+  numberOfChannels: 1,
+  bitRate: 1411200,
   isMeteringEnabled: true,
   android: {
     extension: '.m4a',
-    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-    audioEncoder: Audio.AndroidAudioEncoder.AAC,
+    outputFormat: 'mpeg4',
+    audioEncoder: 'aac',
     sampleRate: 44100,
-    numberOfChannels: 1,
-    bitRate: 256000,
   },
   ios: {
     extension: '.wav',
-    outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-    audioQuality: Audio.IOSAudioQuality.MAX,
+    outputFormat: IOSOutputFormat.LINEARPCM,
+    audioQuality: AudioQuality.MAX,
     sampleRate: 44100,
-    numberOfChannels: 1,
-    bitRate: 1411200,
     linearPCMBitDepth: 16,
     linearPCMIsBigEndian: false,
     linearPCMIsFloat: false,
@@ -37,16 +42,22 @@ const ACOUSTIC_RECORDING_PRESET = {
   },
 };
 
+function clearMeteringTimer() {
+  if (meteringInterval) {
+    clearInterval(meteringInterval);
+    meteringInterval = null;
+  }
+}
+
 /**
- * Prepares the audio subsystem for acoustic recording.
+ * Prepares the audio subsystem for acoustic recording via expo-audio.
  */
 async function configureAudioSession() {
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    playsInSilentModeIOS: true,
-    staysActiveInBackground: false,
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
+  await setAudioModeAsync({
+    allowsRecording: true,
+    playsInSilentMode: true,
+    shouldPlayInBackground: false,
+    interruptionMode: 'doNotMix',
   });
 }
 
@@ -62,68 +73,61 @@ export async function startImpulseRecording(onStatusUpdate) {
     throw new Error('Microphone permission was denied.');
   }
 
-  // Stop any active recording before starting a new one
-  if (currentRecording) {
+  clearMeteringTimer();
+  if (currentRecorder) {
     try {
-      await currentRecording.stopAndUnloadAsync();
+      await currentRecorder.stop();
     } catch (_) {}
-    currentRecording = null;
+    currentRecorder = null;
   }
 
   await configureAudioSession();
 
-  const recording = new Audio.Recording();
-  await recording.prepareToRecordAsync(ACOUSTIC_RECORDING_PRESET);
+  const recorder = new AudioModule.AudioRecorder(ACOUSTIC_RECORDING_PRESET);
+  await recorder.prepareToRecordAsync(ACOUSTIC_RECORDING_PRESET);
+  recorder.record();
+  currentRecorder = recorder;
 
   if (onStatusUpdate) {
-    recording.setOnRecordingStatusUpdate((status) => {
-      if (status.isRecording) {
-        // Expo provides metering from -160 dB to 0 dB
-        const meteringDb = status.metering !== undefined ? status.metering : -60;
-        onStatusUpdate({
-          meteringDb,
-          durationMs: status.durationMillis || 0,
-        });
-      }
-    });
+    meteringInterval = setInterval(() => {
+      if (!currentRecorder) return;
+      try {
+        const status = currentRecorder.getStatus();
+        if (status && status.isRecording) {
+          const meteringDb =
+            typeof status.metering === 'number' ? status.metering : -60;
+          onStatusUpdate({
+            meteringDb,
+            durationMs: status.durationMillis || 0,
+          });
+        }
+      } catch (_) {}
+    }, 80);
   }
 
-  await recording.startAsync();
-  currentRecording = recording;
   return true;
 }
 
 /**
  * Stops recording and extracts normalized Float32Array PCM samples.
- *
- * @returns {Promise<{
- *   uri: string,
- *   fileSizeBytes: number,
- *   sampleRate: number,
- *   channels: number,
- *   bitDepth: number,
- *   durationSec: number,
- *   samples: Float32Array,
- *   peakDb: number,
- *   noiseFloorDb: number
- * }>}
  */
 export async function stopImpulseRecording() {
-  if (!currentRecording) {
+  clearMeteringTimer();
+
+  if (!currentRecorder) {
     throw new Error('No active recording found to stop.');
   }
 
-  const recording = currentRecording;
-  currentRecording = null;
+  const recorder = currentRecorder;
+  currentRecorder = null;
 
-  await recording.stopAndUnloadAsync();
-  const uri = recording.getURI();
+  await recorder.stop();
+  const uri = recorder.uri;
 
   if (!uri) {
     throw new Error('Failed to retrieve recording file URI.');
   }
 
-  // Read recorded audio bytes into memory via base64
   const base64Data = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
@@ -131,10 +135,12 @@ export async function stopImpulseRecording() {
   const rawBytes = base64ToUint8Array(base64Data);
   const parsed = parseWavAudio(rawBytes);
 
-  // Calculate audio waveform peak amplitude & noise floor estimate
   let maxAbs = 0;
   let sumSqFirst100ms = 0;
-  const first100msSamples = Math.min(parsed.samples.length, Math.floor(parsed.sampleRate * 0.1));
+  const first100msSamples = Math.min(
+    parsed.samples.length,
+    Math.floor(parsed.sampleRate * 0.1)
+  );
 
   for (let i = 0; i < parsed.samples.length; i++) {
     const abs = Math.abs(parsed.samples[i]);
@@ -144,9 +150,14 @@ export async function stopImpulseRecording() {
     }
   }
 
-  const peakDb = maxAbs > 0 ? Number((20 * Math.log10(maxAbs)).toFixed(1)) : -90;
-  const rmsNoise = first100msSamples > 0 ? Math.sqrt(sumSqFirst100ms / first100msSamples) : 0.001;
-  const noiseFloorDb = rmsNoise > 0 ? Number((20 * Math.log10(rmsNoise)).toFixed(1)) : -60;
+  const peakDb =
+    maxAbs > 0 ? Number((20 * Math.log10(maxAbs)).toFixed(1)) : -90;
+  const rmsNoise =
+    first100msSamples > 0
+      ? Math.sqrt(sumSqFirst100ms / first100msSamples)
+      : 0.001;
+  const noiseFloorDb =
+    rmsNoise > 0 ? Number((20 * Math.log10(rmsNoise)).toFixed(1)) : -60;
 
   return {
     uri,
@@ -165,10 +176,11 @@ export async function stopImpulseRecording() {
  * Cancels and discards the active recording.
  */
 export async function cancelImpulseRecording() {
-  if (currentRecording) {
+  clearMeteringTimer();
+  if (currentRecorder) {
     try {
-      await currentRecording.stopAndUnloadAsync();
+      await currentRecorder.stop();
     } catch (_) {}
-    currentRecording = null;
+    currentRecorder = null;
   }
 }
