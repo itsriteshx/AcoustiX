@@ -55,7 +55,8 @@
           "cameraPermission": "AcoustiTape uses the camera to capture room photos to document wall surfaces and acoustic treatments."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-notifications"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

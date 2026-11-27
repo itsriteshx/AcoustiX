@@ -18,6 +18,7 @@ import {
   saveSplCalibrationOffset,
   clampCalibrationOffset,
 } from '../../services/storage/calibrationStorage';
+import { sendNoiseWarningNotification } from '../../services/notifications/notificationService';
 
 /**
  * Maps raw Expo metering dBFS (-100 to 0) to estimated consumer SPL (dBA)
@@ -87,6 +88,9 @@ export const SPLMeterModal = ({ visible, onClose }) => {
         const dba = dbfsToEstimatedDba(meteringDb, offsetRef.current);
         setLiveDbfs(Number(meteringDb.toFixed(1)));
         setLiveDba(dba);
+        if (dba >= 85) {
+          sendNoiseWarningNotification(dba);
+        }
 
         samplesRef.current.push(dba);
         const arr = samplesRef.current;

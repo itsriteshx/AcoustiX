@@ -71,6 +71,9 @@ flowchart TD
 | **Persistent Storage** | `@react-native-async-storage/async-storage` | `src/services/storage/historyStorage.js` | Persists room audits & reloads last measurement on startup (`App.js`) |
 | **PDF Certificate Export** | `expo-print`, `expo-sharing` | `src/services/export/pdfCertificate.js` | Renders & shares A4 ISO 3382 PDF compliance certificates |
 | **Native Text Share** | `react-native` (`Share`) | `src/services/export/exportService.js` | Shares formatted text acoustic audit summaries |
+| **Batch CSV Export** | `expo-file-system`, `expo-sharing` | `src/services/export/csvExporter.js` | Exports saved room audits to RFC-4180 `.csv` datasets |
+| **Firebase Authentication** | `firebase` (`firebase/auth`) | `src/services/auth/authService.js` | Email/password sign-in, sign-up, reset & persistent session |
+| **Acoustic Notifications** | `expo-notifications` | `src/services/notifications/notificationService.js` | Audit completion alerts, >85 dBA OSHA warnings & daily reminders |
 
 ---
 
