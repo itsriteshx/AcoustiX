@@ -17,6 +17,7 @@ import {
   deleteMeasurement,
   clearAllMeasurements,
 } from '../services/storage/historyStorage';
+import { exportHistoryCsv } from '../services/export/csvExporter';
 
 export const HistoryScreen = ({ onSelectMeasurement, onCompareRooms }) => {
   const [measurements, setMeasurements] = useState([]);
@@ -202,9 +203,17 @@ export const HistoryScreen = ({ onSelectMeasurement, onCompareRooms }) => {
               </Text>
             </TouchableOpacity>
             {measurements.length > 0 && (
-              <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
-                <Ionicons name="trash-bin-outline" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  onPress={() => exportHistoryCsv(measurements)}
+                  style={styles.clearBtn}
+                >
+                  <Ionicons name="download-outline" size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
+                  <Ionicons name="trash-bin-outline" size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>
