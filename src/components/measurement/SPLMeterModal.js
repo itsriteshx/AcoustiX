@@ -13,14 +13,19 @@ import {
   startImpulseRecording,
   cancelImpulseRecording,
 } from '../../services/audio/audioRecorder';
+import {
+  getSplCalibrationOffset,
+  saveSplCalibrationOffset,
+  clampCalibrationOffset,
+} from '../../services/storage/calibrationStorage';
 
 /**
- * Maps raw Expo metering dBFS (-100 to 0) to estimated consumer SPL (dBA).
- * Note: Smartphone MEMS mics typically clip around ~115-120 dBA SPL.
+ * Maps raw Expo metering dBFS (-100 to 0) to estimated consumer SPL (dBA)
+ * with user-configured calibration offset.
  */
-function dbfsToEstimatedDba(dbfs) {
+function dbfsToEstimatedDba(dbfs, offsetDb = 0) {
   const clamped = Math.max(-90, Math.min(0, dbfs));
-  return Math.round(clamped + 115);
+  return Math.round(clamped + 115 + offsetDb);
 }
 
 function getSafetyZone(dba) {
@@ -43,15 +48,31 @@ export const SPLMeterModal = ({ visible, onClose }) => {
   const [minDba, setMinDba] = useState(null);
   const [maxDba, setMaxDba] = useState(null);
   const [avgDba, setAvgDba] = useState(null);
+  const [calibrationOffset, setCalibrationOffset] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
 
   const samplesRef = useRef([]);
+  const offsetRef = useRef(0);
 
   useEffect(() => {
-    if (!visible && isMonitoring) {
+    if (visible) {
+      getSplCalibrationOffset().then((saved) => {
+        setCalibrationOffset(saved);
+        offsetRef.current = saved;
+      });
+    } else if (isMonitoring) {
       stopMeter();
     }
   }, [visible]);
+
+  const handleAdjustOffset = async (delta) => {
+    const next = clampCalibrationOffset(
+      delta === null ? 0 : calibrationOffset + delta
+    );
+    setCalibrationOffset(next);
+    offsetRef.current = next;
+    await saveSplCalibrationOffset(next);
+  };
 
   const startMeter = async () => {
     try {
@@ -63,7 +84,7 @@ export const SPLMeterModal = ({ visible, onClose }) => {
       setIsMonitoring(true);
 
       await startImpulseRecording(({ meteringDb }) => {
-        const dba = dbfsToEstimatedDba(meteringDb);
+        const dba = dbfsToEstimatedDba(meteringDb, offsetRef.current);
         setLiveDbfs(Number(meteringDb.toFixed(1)));
         setLiveDba(dba);
 
@@ -164,6 +185,37 @@ export const SPLMeterModal = ({ visible, onClose }) => {
               <Text style={[styles.statVal, { color: COLORS.warning }]}>
                 {maxDba !== null ? `${maxDba}` : '--'}
               </Text>
+            </View>
+          </View>
+
+          {/* Persistent Mic Calibration Offset */}
+          <View style={styles.calRow}>
+            <View>
+              <Text style={styles.calLabel}>MIC CALIBRATION OFFSET</Text>
+              <Text style={styles.calSub}>
+                {calibrationOffset > 0 ? '+' : ''}
+                {calibrationOffset.toFixed(1)} dB (Saved)
+              </Text>
+            </View>
+            <View style={styles.calButtons}>
+              <TouchableOpacity
+                style={styles.calBtn}
+                onPress={() => handleAdjustOffset(-0.5)}
+              >
+                <Text style={styles.calBtnText}>-0.5</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.calBtn}
+                onPress={() => handleAdjustOffset(null)}
+              >
+                <Text style={styles.calBtnText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.calBtn}
+                onPress={() => handleAdjustOffset(0.5)}
+              >
+                <Text style={styles.calBtnText}>+0.5</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -334,6 +386,45 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginTop: 2,
+  },
+  calRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  calLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  calSub: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  calButtons: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  calBtn: {
+    backgroundColor: COLORS.card,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  calBtnText: {
+    color: COLORS.text,
+    fontSize: 11,
+    fontWeight: '700',
   },
   actionBtn: {
     flexDirection: 'row',
